@@ -5,13 +5,14 @@ import { FunctionDeclarationSchemaType, getGenerativeModel, vertexAI } from '../
 interface Message {
   user: string;
   text: string;
+  role: 'user' | 'model';
 }
 
 const functions = {
   findPostsByCategory({ categories }: { categories: any[] }) {
     console.log('gotta search by category', { categories });
 
-    if (categories.indexOf('java') > -1) {
+    if (categories.includes('java')) {
       return {
         posts: []
       }
@@ -37,11 +38,15 @@ const functions = {
 }
 
 const Chat = () => {
-
   const model = getGenerativeModel(
     vertexAI,
     {
       model: "gemini-1.5-flash-preview-0514",
+      systemInstruction: `
+        You are a friendly bot named Dory that speaks Brazilian Portuguese and helps visitors of codesilva blog to find blog posts by category.
+        After a function call YOU DO NOT INFER posts, you just take what is given in functionResponse and assume it's right. You are a bot that give functions an autonomy to define which data should be displayed or not.
+        For example, if the user asks for posts on Erlang and the function returned a list of posts, you assume it's correct and display the posts.
+        `,
       tools: [
         {
           functionDeclarations: [
@@ -54,11 +59,16 @@ const Chat = () => {
                 properties: {
                   categories: {
                     type: FunctionDeclarationSchemaType.ARRAY,
-                    description: "The categories for searching blog post",
+                    description: "The categories for searching blog post. They are lowercased when passed to the function",
                   }
                 },
                 required: ['categories'],
               },
+            },
+
+            {
+              name: "fallbackFunction",
+              description: "This is a fallback function that should be called when the model can't find posts by category",
             }
           ],
         }
@@ -68,32 +78,19 @@ const Chat = () => {
 
   const chat = model.startChat({
     history: [
+
       {
         role: 'user',
         parts: [
-          { text: 'Can you please answer in Brazilian Portuguese?' }
+          { text: 'Sempre que não encontrar posts no que foi fornecido em functionResponse, use a função de fallback para que progamaticamente um form possa ser mostrado para o usuário' }
         ]
       },
       {
         role: 'model',
         parts: [
-          { text: 'Sim, vou responder em Portugues' }
+          { text: 'Okay, sempre que uma functionResponse for recebida vou analisar e determinar se retorno algo em functionCalls ou não' }
         ]
       },
-
-      {
-        role: 'user',
-        parts: [
-          { text: 'Os links mostrados, pode por em tag <a>?' }
-        ]
-      },
-
-      {
-        role: 'model',
-        parts: [
-          { text: 'Claro! Os links que vierem nas respostas serão devidamente colocados em tag <a>' }
-        ]
-      }
     ]
   });
 
@@ -103,7 +100,7 @@ const Chat = () => {
 
   const handleSend = async () => {
     if (input.trim()) {
-      setMessages([...messages, { user: 'User', text: input }]);
+      setMessages([...messages, { user: 'User', text: input, role: 'user' }]);
       setInput('');
 
       const result = await chat.sendMessage(input);
@@ -126,19 +123,38 @@ const Chat = () => {
         const result = await chat.sendMessage([{
           functionResponse: {
             name: 'findPostsByCategory',
-            response: apiResponse
+            response: {
+              posts: apiResponse.posts
+            }
           }
         }]);
 
         const chatResponseText = result.response.text();
 
-        // Log the text response.
-        console.log(chatResponseText);
+        console.log('after calling api', { calls: result.response.functionCalls?.(), chatResponseText });
+
+        setMessages((messages) => {
+          return messages.concat({
+            user: 'Assistente do Edy',
+            text: chatResponseText,
+            role: 'model'
+          });
+        });
 
         return;
       }
 
-      console.log('no call identified', result.response.text());
+
+      // TODO: show form
+      const chatResponseText = result.response.text();
+
+      setMessages((messages) => {
+        return messages.concat({
+          user: 'Assistente do Edy',
+          text: chatResponseText,
+          role: 'model'
+        });
+      });
     }
   };
 
