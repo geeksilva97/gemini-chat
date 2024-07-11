@@ -98,6 +98,7 @@ const Chat = () => {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [displayForm, setDisplayForm] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -105,6 +106,8 @@ const Chat = () => {
     if (input.trim()) {
       setMessages([...messages, { user: 'User', text: input, role: 'user' }]);
       setInput('');
+
+      setIsLoading(true);
 
       const result = await chat.sendMessage(input);
 
@@ -140,6 +143,7 @@ const Chat = () => {
         if (fallbackCall?.name === 'fallbackFunction') {
           setDisplayForm(true);
 
+          setIsLoading(false);
           setMessages((messages) => {
             return messages.concat({
               user: 'Dory',
@@ -148,6 +152,7 @@ const Chat = () => {
             });
           });
         } else {
+          setIsLoading(false);
           setMessages((messages) => {
             return messages.concat({
               user: 'Dory',
@@ -181,10 +186,12 @@ const Chat = () => {
   };
 
   const onSuggestionCancel = async () => {
+    setDisplayForm(false);
+    setIsLoading(true);
     const result = await chat.sendMessage(`Não quero enviar sugestão agora. Vou esperar sair mesmo.`);
     const chatResponseText = result.response.text();
 
-    setDisplayForm(false);
+    setIsLoading(false);
     setMessages((messages) => {
       return messages.concat({
         user: 'Dory',
@@ -220,6 +227,10 @@ const Chat = () => {
             <span className="chat-user">{message.user}:</span> {message.text}
           </div>
         ))}
+
+        {isLoading && <div className="chat-message is-bot">
+          <span className="chat-user">Dory:</span> Typing...</div>}
+
         <div ref={messagesEndRef}></div>
 
         {displayForm && (
