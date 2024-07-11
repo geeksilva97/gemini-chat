@@ -169,6 +169,7 @@ const Chat = () => {
       // TODO: show form
       const chatResponseText = result.response.text();
 
+      setIsLoading(false);
       setMessages((messages) => {
         return messages.concat({
           user: 'Dory',
