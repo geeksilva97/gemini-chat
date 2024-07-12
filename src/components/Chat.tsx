@@ -21,16 +21,12 @@ const functions = {
     return {
       posts: [
         {
-          title: 'some python post',
-          url: 'https://codesilva.github.io'
+          title: 'That\'s definitely a post',
+          url: 'https://codesilva.github.io/thats-definitely-a-post'
         },
         {
-          title: 'some nodejs post',
-          url: 'https://codesilva.github.io'
-        },
-        {
-          title: 'some rust post',
-          url: 'https://codesilva.github.io'
+          title: 'Yet another post',
+          url: 'https://codesilva.github.io/yet-another-post'
         }
       ]
     };
@@ -80,7 +76,6 @@ const Chat = () => {
 
   const chat = model.startChat({
     history: [
-
       {
         role: 'user',
         parts: [
@@ -96,7 +91,13 @@ const Chat = () => {
     ]
   });
 
+  type Suggestion = {
+    email?: string;
+    category?: string;
+  };
+
   const [messages, setMessages] = useState<Message[]>([]);
+  const [suggestion, setSuggestion] = useState<Suggestion>({});
   const [displayForm, setDisplayForm] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [input, setInput] = useState('');
@@ -111,21 +112,11 @@ const Chat = () => {
 
       const result = await chat.sendMessage(input);
 
-      const calls = result.response.functionCalls() || [];
-      const [call] = calls;
-
-      console.log({ result, calls });
+      const [call] = result.response.functionCalls() || [];
 
       if (call) {
-        // Call the executable function named in the function call
-        // with the arguments specified in the function call and
-        // let it call the hypothetical API.
         const apiResponse = await functions[call.name](call.args);
 
-        console.log({ apiResponse })
-
-        // Send the API response back to the model so it can generate
-        // a text response that can be displayed to the user.
         const result = await chat.sendMessage([{
           functionResponse: {
             name: 'findPostsByCategory',
@@ -203,7 +194,7 @@ const Chat = () => {
   };
 
   const onSuggestionSend = async () => {
-    const result = await chat.sendMessage(`Essa é minha sugestão. Post de Erlang mostrando como fazer aplicações tolerantes a falhas.`);
+    const result = await chat.sendMessage(`A sugestão que tenho é de um post sobre o assunto ${suggestion.category}.`);
     const chatResponseText = result.response.text();
 
     setDisplayForm(false);
@@ -213,6 +204,15 @@ const Chat = () => {
         text: chatResponseText,
         role: 'model'
       });
+    });
+  };
+
+  const updateSuggestion = (key: string, value: string) => {
+    setSuggestion((suggestion) => {
+      return {
+        ...suggestion,
+        [key]: value
+      };
     });
   };
 
@@ -238,14 +238,12 @@ const Chat = () => {
           <div className='chat-message post-suggestion'>
             <form>
               <label htmlFor="email">Email:</label>
-              <input type="email" id="email" name="email" />
+              <input type="email" id="email" name="email" onChange={(e) => updateSuggestion('email', e.target.value)}autoComplete='off' />
               <label htmlFor="category">Assunto do post:</label>
-              <input type="text" id="category" name="category" />
-              <label htmlFor="category">Breve descrição (opcional)</label>
-              <input type="text" id="category" name="category" />
+              <input type="text" id="category" name="category" onChange={(e) => updateSuggestion('category', e.target.value)} />
               <div className='buttons'>
                 <button type="button" className='cancel' onClick={onSuggestionCancel}>Cancelar</button>
-                <button type="button" onClick={onSuggestionSend}>Enviar</button>
+                <button type="button" disabled={!suggestion.email || !suggestion.category} onClick={onSuggestionSend}>Enviar</button>
               </div>
             </form>
           </div>
